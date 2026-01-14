@@ -9,5 +9,4 @@ module.exports = async function seedGccCountries() {
     );
   }
 
-  console.log("✅ GCC countries seeded");
 };

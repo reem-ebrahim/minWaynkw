@@ -58,7 +58,7 @@ const userSchema = mongoose.Schema(
   }
 );
 userSchema.pre("save", async function (next) {
-  console.log(this.password,'this.password')
+ 
   if(this.password){
  this.password = await bcrypt.hash(
     this.password,

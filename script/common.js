@@ -32,7 +32,7 @@ function loadTermsFromFile() {
     const cleaned = lines.map((l) => normalizeArabic(l.trim())).filter(Boolean);
 
     TERMS = new Set(cleaned);
-    console.log(`[profanity_kw] loaded ${TERMS.size} terms`);
+
   } catch (err) {
     console.error("[profanity_kw] failed to load:", err.message);
   }

@@ -20,7 +20,7 @@ module.exports = async function upsertAdmin({
       exists.role = role;
       await exists.save();
     }
-    console.log(`ℹ️ Exists: ${role} -> ${normalizedEmail}`);
+  
     return;
   }
     const nickname = await generateNickname(firstName, lastName);
@@ -36,5 +36,5 @@ module.exports = async function upsertAdmin({
   });
 
   await user.save();
-  console.log(`✅ Created: ${role} -> ${normalizedEmail}`);
+
 };

@@ -133,7 +133,7 @@ module.exports.signin = async (req, res) => {
     }
 
     const match = await bcrypt.compare(password, user.password);
-    console.log(match, "match");
+    
     if (!match) {
       return res.error("Invalid email or password", null, 400);
     }
