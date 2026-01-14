@@ -22,14 +22,14 @@ router.post(
 );
 router.patch(
   "/updateProfile",
-  auth(endPoint.updateProfile),
+  auth(endPoint.AllUser),
   myMulter("picture", filetype.Image).single("image"),
   validate(validationuser.profilevalidation),
   userservice.profile
 );
 router.delete(
   "/deleteUser/:id",
-  auth(endPoint.deleteUser),
+  auth(endPoint.AllUser),
   validate(validationuser.deletevalidation),
   userservice.profiledelete
 );
@@ -46,12 +46,12 @@ router.post(
 );
 router.post(
   "/changePassword",
-  auth(endPoint.updateProfile),
+  auth(endPoint.AllUser),
 
   validate(validationuser.changePassword),
   userservice.changePassword
 );
-router.get("/me", auth(endPoint.updateProfile), userservice.getUserByToken);
+router.get("/me", auth(endPoint.AllUser), userservice.getUserByToken);
 
 router.post(
   "/confirm-code",
@@ -65,4 +65,15 @@ router.post(
   userservice.sendVerifyEmail
 );
 
+router.get(
+  "/getAllUser",
+  auth(endPoint.AdminAndSuperAdmin),
+  userservice.getAllUserSubAdmin
+);
+router.patch(
+  "/:id/vip",
+  auth(endPoint.SuperAdmin),
+  validate(validationuser.assignVipValidation),
+  userservice.assignVipLevel
+);
 module.exports = router;

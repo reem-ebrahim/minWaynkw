@@ -1,12 +1,18 @@
 const joi = require("joi");
-
+const objectId = joi.string().hex().length(24);
 module.exports.signupvalidation = {
   body: joi
     .object({
-      fullName: joi.string().min(3).max(30).required().messages({
-        "string.empty": "Full name is required",
-        "string.min": "Full name must be at least 3 characters",
-        "any.required": "Full name is required",
+      firstName: joi.string().min(3).max(30).required().messages({
+        "string.empty": "first name is required",
+        "string.min": "first name must be at least 3 characters",
+        "any.required": "first name is required",
+      }),
+
+      lastName: joi.string().min(3).max(30).required().messages({
+        "string.empty": "last name is required",
+        "string.min": "last name must be at least 3 characters",
+        "any.required": "last name is required",
       }),
 
       email: joi.string().email().required().messages({
@@ -15,9 +21,26 @@ module.exports.signupvalidation = {
         "any.required": "Email is required",
       }),
 
+      phoneNumber: joi
+        .string()
+        .pattern(/^\+\d{8,15}$/)
+        .required()
+        .messages({
+          "string.empty": "Phone number is required",
+          "string.pattern.base":
+            "Phone number must be in international format (e.g. +965XXXXXXXX)",
+          "any.required": "Phone number is required",
+        }),
+
+      country: objectId.required().messages({
+        "string.length": "Invalid country id",
+        "string.hex": "Invalid country id",
+        "any.required": "Country is required",
+      }),
+
       password: joi.string().min(8).required().messages({
         "string.empty": "Password is required",
-        "string.min": "Password must be at least 6 characters",
+        "string.min": "Password must be at least 8 characters",
         "any.required": "Password is required",
       }),
 
@@ -53,9 +76,13 @@ module.exports.profilevalidation = {
     .required()
     .keys({
       email: joi.string().email(),
-      fullName: joi.string().min(3).max(30).messages({
-        "string.empty": "fullName is required",
-        "string.min": "fullName must be at least 3 characters",
+      firstName: joi.string().min(3).max(30).messages({
+        "string.empty": "firstName is required",
+        "string.min": "firstName must be at least 3 characters",
+      }),
+      lastName: joi.string().min(3).max(30).messages({
+        "string.empty": "lastName is required",
+        "string.min": "lastName must be at least 3 characters",
       }),
     }),
 };
@@ -173,4 +200,24 @@ module.exports.resetPasswordByCode = {
         "any.required": "New password is required",
       }),
     }),
+};
+
+module.exports.assignVipValidation = {
+  params: joi.object().required().keys({
+    id: objectId.required().messages({
+      "string.length": "Invalid user id",
+      "string.hex": "Invalid user id",
+      "any.required": "User id is required",
+    }),
+  }),
+
+  body: joi.object().required().keys({
+    vipLevel: joi.number().integer().min(1).max(100).required().messages({
+      "number.base": "vipLevel must be a number",
+      "number.integer": "vipLevel must be an integer",
+      "number.min": "vipLevel must be at least 1",
+      "number.max": "vipLevel must be at most 100",
+      "any.required": "vipLevel is required",
+    }),
+  }),
 };

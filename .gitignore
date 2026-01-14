@@ -36,26 +36,3 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-1mOeafeD8kXfEbQM
-
-
-username=>reem_sina
-password=>A6dg7ia4@
-
-reem
-
-A6dg7ia4@
-
-
-
-error router:error connect Error: queryTxt ETIMEOUT cluster0.coszfpd.mongodb.net
-    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/promises:294:17) {
-  errno: undefined,
-  code: 'ETIMEOUT',
-  syscall: 'queryTxt',
-  hostname: 'cluster0.coszfpd.mongodb.net'
-}
-
-lhid gzgm wqrd tiih
-
-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

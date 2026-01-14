@@ -1,8 +1,8 @@
 const { roles } = require("../../../Middleware/auth");
 
 module.exports.endPoint = {
-    deleteUser: [roles.admin, roles.user],
-    updateProfile: [roles.admin, roles.user],
-    updatePicture: [roles.admin, roles.user],
-    softdelet:  [roles.admin, roles.user]
-}
+  AllUser: [roles.admin, roles.user, roles.super_admin, roles.vip],
+
+  AdminAndSuperAdmin: [roles.super_admin, roles.vip, roles.admin],
+  SuperAdmin: [roles.super_admin, roles.admin],
+};

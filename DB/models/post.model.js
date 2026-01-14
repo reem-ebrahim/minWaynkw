@@ -19,19 +19,20 @@ postSchema.pre("findOneAndUpdate", async function (next) {
   const version = await this.model.findOne(this.getQuery()).select("__v");
   this.set({ __v: version.__v + 1 });
 });
-postSchema.post("save", async function (doc) {
-  await userModel.findByIdAndUpdate(doc.createdBy, {
-    $inc: { numberOfPosts: 1 },
-  });
-});
+// postSchema.post("save", async function (doc) {
+//   console.log(doc,'doc')
+//   // if (!doc.isNew) return;
+//   await userModel.findByIdAndUpdate(doc.createdBy, {
+//     $inc: { numberOfPosts: 1 },
+//   });
+// });
 
-postSchema.post("findOneAndDelete", async function (doc) {
-  if (!doc) return;
+// postSchema.post("findOneAndDelete", async function (doc) {
+//   if (!doc) return;
 
-  await userModel.findByIdAndUpdate(
-    doc.createdBy,
-    { $inc: { numberOfPosts: -1 } }
-  );
-});
+//   await userModel.findByIdAndUpdate(doc.createdBy, {
+//     $inc: { numberOfPosts: -1 },
+//   });
+// });
 const postModel = mongoose.model("post", postSchema);
 module.exports = postModel;

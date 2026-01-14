@@ -2,6 +2,12 @@ const jwt = require("jsonwebtoken");
 const userModel = require("../../../DB/models/user.model");
 const sendEmail = require("../../../services/sendEmail");
 const bcrypt = require("bcrypt");
+const countryModel = require("../../../DB/models/country.model");
+const { default: mongoose } = require("mongoose");
+const commentModel = require("../../../DB/models/comment.model");
+const postModel = require("../../../DB/models/post.model");
+const { generateNickname } = require("../../../script/common");
+const { roles } = require("../../../Middleware/auth");
 
 const generateCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -9,17 +15,38 @@ const generateCode = () => {
 
 module.exports.signup = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { firstName, lastName, email, password, phoneNumber, country } =
+      req.body;
 
+    const role = "user";
+
+    // ✅ check country exists
+    const countryexist = await countryModel.Country.findById(country);
+    if (!countryexist) {
+      return res.error("Invalid country", null, 400);
+    }
+    if (!phoneNumber.startsWith(countryexist.dialCode)) {
+      return res.error(
+        `Phone number must start with ${countryexist.dialCode}`,
+        null,
+        400
+      );
+    }
+    // ✅ generate verification code
     const code = generateCode();
     const hashedCode = await bcrypt.hash(code, 10);
-
+    const nickname = await generateNickname(firstName, lastName);
     const user = new userModel({
-      fullName,
+      firstName,
+      lastName,
+      nickName: nickname,
       email,
-      password,
+      password, // سيتم تشفيره في pre-save
+      phoneNumber,
+      country: countryexist._id,
       code: hashedCode,
-      verificationCodeExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
+      verificationCodeExpires: Date.now() + 10 * 60 * 1000,
+      role,
     });
 
     await user.save();
@@ -33,7 +60,7 @@ module.exports.signup = async (req, res) => {
 
     await sendEmail.sendConfirmationEmail({
       to: email,
-      name: `${fullName}`,
+      name: `${firstName} ${lastName}`,
       link: message,
     });
 
@@ -43,6 +70,15 @@ module.exports.signup = async (req, res) => {
       201
     );
   } catch (error) {
+    // duplicate email or phone
+    if (error.code === 11000) {
+      return res.error(
+        "Email or phone number already exists",
+        error.keyValue,
+        409
+      );
+    }
+
     return res.error("Internal server error", error.message, 500);
   }
 };
@@ -51,9 +87,7 @@ module.exports.confirm = async (req, res) => {
   try {
     const { token } = req.params;
 
-    if (!token) {
-      return res.error("Token is required", null, 400);
-    }
+    if (!token) return res.error("Token is required", null, 400);
 
     let decoded;
     try {
@@ -61,19 +95,13 @@ module.exports.confirm = async (req, res) => {
     } catch (err) {
       return res.error("Invalid or expired token", null, 400);
     }
-    console.log(decoded, "decodedd");
-    const user = await userModel.findById(decoded.id).select("-password");
 
-    if (!user) {
-      return res.error("User not found", null, 404);
-    }
+    const user = await userModel.findById(decoded.id).select("confirmed");
+    if (!user) return res.error("User not found", null, 404);
 
-    if (user.confirmed) {
-      return res.success("Email already confirmed");
-    }
+    if (user.confirmed) return res.success("Email already confirmed");
 
-    user.confirmed = true;
-    await user.save();
+    await userModel.findByIdAndUpdate(decoded.id, { confirmed: true });
 
     return res.success("Email confirmed successfully");
   } catch (error) {
@@ -105,7 +133,7 @@ module.exports.signin = async (req, res) => {
     }
 
     const match = await bcrypt.compare(password, user.password);
-
+    console.log(match, "match");
     if (!match) {
       return res.error("Invalid email or password", null, 400);
     }
@@ -113,7 +141,7 @@ module.exports.signin = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, isLogged: true },
       process.env.JWTAUTH,
-      { expiresIn: "24h" }
+      { expiresIn: "60d" }
     );
 
     return res.success("Signin successful", {
@@ -126,18 +154,18 @@ module.exports.signin = async (req, res) => {
 };
 module.exports.profile = async (req, res) => {
   try {
-    const { email, fullName } = req.body;
+    const { email, firstName, lastName, nickName } = req.body;
 
-    const user = await userModel.findById(req.user.id);
-    if (!user) {
-      return res.error("User not found", null, 404);
-    }
+    const user = await userModel
+      .findById(req.user.id)
+      .select("email confirmed firstName lastName");
+    if (!user) return res.error("User not found", null, 404);
 
+    const update = {};
     let emailChanged = false;
 
-    if (fullName && fullName !== user.fullName) {
-      user.fullName = fullName;
-    }
+    if (firstName && firstName !== user.firstName) update.firstName = firstName;
+    if (lastName && lastName !== user.lastName) update.lastName = lastName;
 
     if (email && email !== user.email) {
       const emailExists = await userModel.findOne({
@@ -145,81 +173,120 @@ module.exports.profile = async (req, res) => {
         _id: { $ne: user._id },
       });
 
-      if (emailExists) {
-        return res.error("Email already in use", null, 409);
-      }
+      if (emailExists) return res.error("Email already in use", null, 409);
 
-      user.email = email;
-      user.confirmed = false;
+      update.email = email;
+      update.confirmed = false;
       emailChanged = true;
     }
-
-    if (req.imagevalidtype) {
-      return res.error("Invalid image type", null, 400);
+    if (user.role == roles.admin || user.role == roles.super_admin) {
+      if (nickName) {
+        update.nickName = nickName;
+      }
     }
+    if (req.imagevalidtype) return res.error("Invalid image type", null, 400);
 
     if (req.file) {
-      user.profile_picture = `${req.destination}/${req.file.filename}`;
+      update.profile_picture = `${req.destination}/${req.file.filename}`;
     }
 
-    await user.save();
+    const updatedUser = await userModel
+      .findByIdAndUpdate(
+        req.user.id,
+        { $set: update },
+        { new: true, runValidators: true }
+      )
+      .select("email firstName lastName confirmed");
 
     if (emailChanged) {
-      const token = jwt.sign({ id: user._id }, process.env.JWTEMAIL, {
+      const token = jwt.sign({ id: updatedUser._id }, process.env.JWTEMAIL, {
         expiresIn: "30d",
       });
 
       const URL = `${process.env.DOMAIN}/api/user/confirmEmail/${token}`;
       const message = `<a href="${URL}">Confirm your new email</a>`;
 
-      // enable when SMTP ready
       await sendEmail.sendConfirmationEmail({
-        to: saveUser.email,
-        name: saveUser.name,
+        to: updatedUser.email,
+        name:
+          updatedUser.nickName ||
+          `${updatedUser.firstName} ${updatedUser.lastName}`,
         link: message,
       });
     }
 
     return res.success("Profile updated successfully", {
-      id: user._id,
-      email: user.email,
-      fullName: user.fullName,
-      confirmed: user.confirmed,
+      id: updatedUser._id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      confirmed: updatedUser.confirmed,
     });
   } catch (error) {
-    return res.error("Internal server error", null, 500);
+    console.error(error);
+    return res.error("Internal server error", error.message, 500);
   }
 };
 
 module.exports.profiledelete = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { id } = req.params;
 
-    const currentUser = await userModel.findById(req.user.id);
+    const currentUser = await userModel.findById(req.user.id).session(session);
     if (!currentUser) {
+      await session.abortTransaction();
+      session.endSession();
       return res.error("User not found", null, 404);
     }
 
-    const userToDelete = await userModel.findById(id);
+    const userToDelete = await userModel.findById(id).session(session);
     if (!userToDelete) {
+      await session.abortTransaction();
+      session.endSession();
       return res.error("Target user not found", null, 404);
     }
 
     const isOwner = currentUser._id.equals(userToDelete._id);
-    const isAdmin = currentUser.role === "admin";
+    const isAdmin =
+      currentUser.role === "admin" || currentUser.role === "super_admin";
 
     if (!isOwner && !isAdmin) {
+      await session.abortTransaction();
+      session.endSession();
       return res.error("You are not allowed to delete this account", null, 403);
     }
 
-    await userModel.findByIdAndDelete(id);
+    // ✅ delete user's comments
+    const commentsResult = await commentModel.deleteMany(
+      { comment_by: userToDelete._id },
+      { session }
+    );
+
+    // ✅ delete user's posts
+    const postsResult = await postModel.deleteMany(
+      { createdBy: userToDelete._id },
+      { session }
+    );
+
+    // ✅ delete user
+    await userModel.deleteOne({ _id: userToDelete._id }, { session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     return res.success("User deleted successfully", {
       id: userToDelete._id,
       email: userToDelete.email,
+      deletedPosts: postsResult.deletedCount,
+      deletedComments: commentsResult.deletedCount,
     });
   } catch (error) {
-    return res.error("Internal server error", null, 500);
+    await session.abortTransaction();
+    session.endSession();
+    return res.error("Internal server error", error.message, 500);
   }
 };
 
@@ -227,21 +294,18 @@ module.exports.sendVerifyEmail = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await userModel.findOne({ email });
-
-    if (!user) {
-      return res.error("User not found", null, 404);
-    }
-
-    if (user.confirmed) {
-      return res.error("Email already confirmed", null, 400);
-    }
+    const user = await userModel.findOne({ email }).select("_id nickName");
+    if (!user) return res.error("User not found", null, 404);
 
     const code = generateCode();
-    user.code = await bcrypt.hash(code, 10);
-    user.verificationCodeExpires = Date.now() + 10 * 60 * 1000;
+    const hashedCode = await bcrypt.hash(code, 10);
 
-    await user.save();
+    await userModel.findByIdAndUpdate(user._id, {
+      $set: {
+        code: hashedCode,
+        verificationCodeExpires: Date.now() + 10 * 60 * 1000,
+      },
+    });
 
     const message = `
       <h3>Email Verification</h3>
@@ -252,7 +316,7 @@ module.exports.sendVerifyEmail = async (req, res) => {
 
     await sendEmail.sendConfirmationEmail({
       to: email,
-      name: user.fullName,
+      name: user?.nickName,
       link: message,
     });
 
@@ -266,21 +330,14 @@ module.exports.forgetpassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
 
-    // Validation
     if (!email || !newPassword) {
       return res.error("Email and new password are required", null, 400);
     }
 
-    const user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email }).select("+password");
+    if (!user) return res.error("User not found", null, 404);
 
-    // User not found
-    if (!user) {
-      return res.error("User not found", null, 404);
-    }
-
-    // Check if new password is same as old password
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
-
     if (isSamePassword) {
       return res.error(
         "New password must be different from the old password",
@@ -289,10 +346,12 @@ module.exports.forgetpassword = async (req, res) => {
       );
     }
 
-    // Update password
-    await userModel.findByIdAndUpdate(user._id, { password: newPassword });
+    const hashed = await bcrypt.hash(newPassword, 10);
 
-    // Success response
+    await userModel.findByIdAndUpdate(user._id, {
+      $set: { password: hashed },
+    });
+
     return res.success("Password reset successfully", null, 200);
   } catch (error) {
     return res.error("Internal server error", error.message, 500);
@@ -302,28 +361,20 @@ module.exports.forgetpassword = async (req, res) => {
 module.exports.changePassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    const userId = req.user?.id; // assuming auth middleware sets req.user
+    const userId = req.user?.id;
 
-    // Find user
     const user = await userModel.findById(userId).select("+password");
+    if (!user) return res.error("User not found", null, 404);
 
-    if (!user) {
-      return res.error("User not found", null, 404);
-    }
-
-    // Verify old password
     const isOldPasswordCorrect = await bcrypt.compare(
       oldPassword,
       user.password
     );
-
     if (!isOldPasswordCorrect) {
       return res.error("Old password is incorrect", null, 401);
     }
 
-    // Prevent same password
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
-
     if (isSamePassword) {
       return res.error(
         "New password must be different from old password",
@@ -332,13 +383,15 @@ module.exports.changePassword = async (req, res) => {
       );
     }
 
-    user.password = newPassword;
-    await user.save();
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await userModel.findByIdAndUpdate(userId, {
+      $set: { password: hashed },
+    });
 
     return res.success("Password changed successfully", null, 200);
   } catch (error) {
     console.error("Change Password Error:", error);
-
     return res.error("Internal server error", error.message, 500);
   }
 };
@@ -374,10 +427,6 @@ module.exports.confirmByCode = async (req, res) => {
       return res.error("User not found", null, 404);
     }
 
-    if (user.confirmed) {
-      return res.success("Email already confirmed");
-    }
-
     if (!user.code || !user.verificationCodeExpires) {
       return res.error("No verification code found", null, 400);
     }
@@ -392,13 +441,117 @@ module.exports.confirmByCode = async (req, res) => {
       return res.error("Invalid verification code", null, 400);
     }
 
-    user.confirmed = true;
-    user.code = undefined;
-    user.verificationCodeExpires = undefined;
-
-    await user.save();
+    await userModel.findByIdAndUpdate(
+      user._id,
+      {
+        confirmed: true,
+        $unset: {
+          code: "",
+          verificationCodeExpires: "",
+        },
+      },
+      { new: true }
+    );
 
     return res.success("Email confirmed successfully");
+  } catch (error) {
+    return res.error("Internal server error", error.message, 500);
+  }
+};
+
+module.exports.editPointer = async (req, res) => {
+  try {
+    const { pointer } = req.body;
+
+    const updatedUser = await userModel
+      .findByIdAndUpdate(
+        req.user.id,
+        { $set: { pointer } },
+        { new: true, runValidators: true }
+      )
+      .select("email firstName lastName confirmed");
+
+    if (!updatedUser) return res.error("User not found", null, 404);
+
+    return res.success("Profile updated successfully", {
+      id: updatedUser._id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      confirmed: updatedUser.confirmed,
+    });
+  } catch (error) {
+    return res.error("Internal server error", error.message, 500);
+  }
+};
+
+module.exports.getAllUserSubAdmin = async (req, res) => {
+  try {
+    // (optional) admin only
+    const currentUser = await userModel.findById(req.user.id);
+    if (!currentUser) return res.error("User not found", null, 404);
+
+    const users = await userModel
+      .find({ role: "user" })
+      .select("-password -code -verificationCodeExpires -__v");
+
+    return res.success("Users fetched successfully", users, 200);
+  } catch (error) {
+    return res.error("Internal server error", error.message, 500);
+  }
+};
+
+module.exports.assignVipLevel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vipLevel } = req.body;
+
+    const level = Number(vipLevel);
+    if (!Number.isInteger(level) || level < 1 || level > 100) {
+      return res.error(
+        "vipLevel must be an integer between 1 and 100",
+        null,
+        400
+      );
+    }
+
+    const currentUser = await userModel.findById(req.user.id).select("role");
+    if (!currentUser) return res.error("User not found", null, 404);
+
+    const targetUser = await userModel.findById(id).select("pointer vipLevel");
+    if (!targetUser) return res.error("Target user not found", null, 404);
+
+    if ((targetUser.pointer || 0) < 500) {
+      return res.error(
+        "User must have pointer >= 500 to assign VIP level",
+        null,
+        400
+      );
+    }
+
+    const updated = await userModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            vipLevel: level,
+            role: roles.super_admin,
+            nicKName: targetUser.firstName + targetUser.lastName + level,
+          },
+        },
+        { new: true }
+      )
+      .select("pointer vipLevel");
+
+    return res.success(
+      "VIP level assigned successfully",
+      {
+        userId: id,
+        pointer: updated.pointer,
+        vipLevel: updated.vipLevel,
+      },
+      200
+    );
   } catch (error) {
     return res.error("Internal server error", error.message, 500);
   }

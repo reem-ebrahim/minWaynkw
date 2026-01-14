@@ -16,7 +16,7 @@ router.post(
   validate(validationPost.createPost),
   postService.createPost
 );
-router.get("/", postService.getAllPosts);
+router.get("/", auth(endPoint.allUser), postService.getAllPosts);
 router.patch(
   "/:id/like",
   auth(endPoint.allUser),
@@ -28,4 +28,6 @@ router.delete(
   validate(validationPost.deletePost),
   postService.deletePost
 );
+router.get("/home",  postService.getAllPostsAndBanners);
+
 module.exports = router;
