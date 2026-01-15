@@ -121,6 +121,28 @@ module.exports.signin = async (req, res) => {
     }
 
     if (!user.confirmed) {
+      const code = generateCode();
+      const hashedCode = await bcrypt.hash(code, 10);
+      await userModel.findOneAndUpdate(
+        { email },
+        {
+          code: hashedCode,
+          emailVerificationExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
+        },
+        { new: true }
+      );
+      const message = `
+      <h3>Email Verification</h3>
+      <p>Your verification code is:</p>
+      <h2>${code}</h2>
+      <p>This code expires in 10 minutes.</p>
+    `;
+
+      await sendEmail.sendConfirmationEmail({
+        to: email,
+        name: `${user.firstName} ${user.lastName}`,
+        link: message,
+      });
       return res.error("Please confirm your email first", null, 400);
     }
 
@@ -133,7 +155,7 @@ module.exports.signin = async (req, res) => {
     }
 
     const match = await bcrypt.compare(password, user.password);
-    
+
     if (!match) {
       return res.error("Invalid email or password", null, 400);
     }
@@ -199,19 +221,34 @@ module.exports.profile = async (req, res) => {
       .select("email firstName lastName confirmed");
 
     if (emailChanged) {
-      const token = jwt.sign({ id: updatedUser._id }, process.env.JWTEMAIL, {
-        expiresIn: "30d",
-      });
-
-      const URL = `${process.env.DOMAIN}/api/user/confirmEmail/${token}`;
-      const message = `<a href="${URL}">Confirm your new email</a>`;
+      const code = generateCode();
+      const hashedCode = await bcrypt.hash(code, 10);
+      await userModel.findOneAndUpdate(
+        { email },
+        {
+          code: hashedCode,
+          emailVerificationExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
+        },
+        { new: true }
+      );
+      const message = `
+      <h3>Email Verification</h3>
+      <p>Your verification code is:</p>
+      <h2>${code}</h2>
+      <p>This code expires in 10 minutes.</p>
+    `;
 
       await sendEmail.sendConfirmationEmail({
-        to: updatedUser.email,
-        name:
-          updatedUser.nickName ||
-          `${updatedUser.firstName} ${updatedUser.lastName}`,
+        to: email,
+        name: `${user.firstName} ${user.lastName}`,
         link: message,
+      });
+      return res.success("Please confirm your email first", {
+        id: updatedUser._id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        confirmed: updatedUser.confirmed,
       });
     }
 
@@ -405,7 +442,7 @@ module.exports.getUserByToken = async (req, res) => {
       return res.error("User not found", null, 404);
     }
 
-    return res.success("User fetched successfully", {user:user}, 200);
+    return res.success("User fetched successfully", { user: user }, 200);
   } catch (error) {
     console.error("Get User By Token Error:", error);
 
