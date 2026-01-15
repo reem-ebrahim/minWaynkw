@@ -150,12 +150,12 @@ module.exports.confirmByCode = {
 
       code: joi
         .string()
-        .length(6)
+        .length(4)
         .pattern(/^[0-9]+$/)
         .required()
         .messages({
           "string.empty": "Verification code is required",
-          "string.length": "Verification code must be 6 digits",
+          "string.length": "Verification code must be 4 digits",
           "string.pattern.base": "Verification code must contain only numbers",
           "any.required": "Verification code is required",
         }),
