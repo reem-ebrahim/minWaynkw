@@ -27,7 +27,7 @@ module.exports.auth = (accessRoles = []) => {
       // ✅ verify token
       let decoded;
       try {
-        decoded = jwt.verify(token, process.env.jwtauth);
+        decoded = jwt.verify(token, process.env.JWTAUTH);
       } catch (err) {
         if (err.name === "TokenExpiredError") {
           return res.error("Token expired, please login again", null, 401);
