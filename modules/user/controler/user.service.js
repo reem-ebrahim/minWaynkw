@@ -405,7 +405,7 @@ module.exports.getUserByToken = async (req, res) => {
       return res.error("User not found", null, 404);
     }
 
-    return res.success("User fetched successfully", user, 200);
+    return res.success("User fetched successfully", {user:user}, 200);
   } catch (error) {
     console.error("Get User By Token Error:", error);
 
