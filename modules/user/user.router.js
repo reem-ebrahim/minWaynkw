@@ -1,3 +1,4 @@
+const { attachUserStreak } = require("../../Middleware/attachUserStreak");
 const { auth } = require("../../Middleware/auth");
 const { validate } = require("../../Middleware/validation");
 const { myMulter, filetype } = require("../../services/multer");
@@ -51,7 +52,7 @@ router.post(
   validate(validationuser.changePassword),
   userservice.changePassword
 );
-router.get("/me", auth(endPoint.AllUser), userservice.getUserByToken);
+router.get("/me", auth(endPoint.AllUser),attachUserStreak, userservice.getUserByToken);
 
 router.post(
   "/confirm-code",

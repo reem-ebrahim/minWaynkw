@@ -41,6 +41,7 @@ module.exports.addcomment = async (req, res) => {
       comment_by: [user._id],
       post_id: [post._id],
     });
+    res.locals.createdId = comment._id;
     await postModel.findByIdAndUpdate(id, {
       $push: { comments: comment._id },
     });
@@ -96,6 +97,7 @@ module.exports.addreplycomment = async (req, res) => {
       comment_by: [user._id],
       post_id: parentComment.post_id,
     });
+    res.locals.createdId = reply._id;
 
     await commentModel.findByIdAndUpdate(parentComment._id, {
       $push: { replies: reply._id },

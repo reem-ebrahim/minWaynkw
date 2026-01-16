@@ -3,6 +3,7 @@ dns.setDefaultResultOrder("ipv4first");
 const mongoose = require("mongoose");
 const upsertAdmin = require("../script/admin");
 const countryCodeAdmin = require("../script/countryCode");
+const UserStreak = require("../DB/models/streak.model");
 
 require("dotenv").config();
 
@@ -29,6 +30,17 @@ module.exports.connectdb = () => {
         role: "super_admin",
       });
       await countryCodeAdmin(); // 🔥 runs once safely
+      const r1 = await UserStreak.updateMany(
+      { "recentActivities.refModel": "Comment" },
+      { $set: { "recentActivities.$[x].refModel": "comment" } },
+      { arrayFilters: [{ "x.refModel": "Comment" }] }
+    );
+
+    const r2 = await UserStreak.updateMany(
+      { "recentActivities.refModel": "Post" },
+      { $set: { "recentActivities.$[x].refModel": "post" } },
+      { arrayFilters: [{ "x.refModel": "Post" }] }
+    );
     })
 
     .catch((error) => {

@@ -1,4 +1,5 @@
 const { auth } = require("../../Middleware/auth");
+const { streakMiddleware } = require("../../Middleware/streak.middleware");
 const { validate } = require("../../Middleware/validation");
 const { myMulter, filetype } = require("../../services/multer");
 const { endPoint } = require("./controler/post.endpoint");
@@ -13,6 +14,10 @@ router.post(
     { name: "images", maxCount: 10 },
     { name: "videos", maxCount: 3 },
   ]),
+  streakMiddleware("post", {
+    message: "You created a new post",
+    refModel: "Post",
+  }),
   validate(validationPost.createPost),
   postService.createPost
 );
@@ -28,6 +33,6 @@ router.delete(
   validate(validationPost.deletePost),
   postService.deletePost
 );
-router.get("/home",  postService.getAllPostsAndBanners);
+router.get("/home", postService.getAllPostsAndBanners);
 
 module.exports = router;

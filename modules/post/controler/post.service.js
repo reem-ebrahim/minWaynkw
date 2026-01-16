@@ -1,8 +1,13 @@
 const postModel = require("../../../DB/models/post.model");
 const userModel = require("../../../DB/models/user.model");
 const commentModel = require("../../../DB/models/comment.model");
-const { containsBadWords, maxStrikes, containsBadWordsMixed } = require("../../../script/common");
+const {
+  containsBadWords,
+  maxStrikes,
+  containsBadWordsMixed,
+} = require("../../../script/common");
 const bannerModel = require("../../../DB/models/banner.model");
+const { roles } = require("../../../Middleware/auth");
 // const { ProfanityEngine } = require("@coffeeandfun/google-profanity-words");
 // const profanity = new Profanity({
 //   languages: ["ar"],
@@ -119,7 +124,7 @@ module.exports.createPost = async (req, res) => {
       : [];
     const user = await userModel
       .findById(req.user.id)
-      .select("badWordsNumber blocked");
+      .select("badWordsNumber blocked role");
     if (!user) return res.error("User not found", null, 404);
 
     // ✅ if blocked stop
@@ -149,7 +154,7 @@ module.exports.createPost = async (req, res) => {
       videos,
       createdBy: req.user.id,
     });
-
+    res.locals.createdId = post._id;
     await userModel.findByIdAndUpdate(req.user.id, {
       $inc: { numberOfPosts: 1, pointer: 1 },
     });
@@ -167,7 +172,7 @@ module.exports.likeAndUnlikePost = async (req, res) => {
     const userId = req.user.id;
     const user = await userModel
       .findById(req.user.id)
-      .select("badWordsNumber blocked");
+      .select("badWordsNumber blocked role");
     if (!user) return res.error("User not found", null, 404);
 
     // ✅ if blocked stop
@@ -214,7 +219,7 @@ module.exports.deletePost = async (req, res) => {
     const userId = req.user.id;
     const user = await userModel
       .findById(req.user.id)
-      .select("badWordsNumber blocked");
+      .select("badWordsNumber blocked role");
     if (!user) return res.error("User not found", null, 404);
 
     // ✅ if blocked stop
@@ -225,7 +230,8 @@ module.exports.deletePost = async (req, res) => {
     const post = await postModel.findById(id);
     if (!post) return res.error("Post not found", null, 404);
     const isOwner = post.createdBy.toString() === userId;
-    const isAdmin = user.role === "admin";
+
+    const isAdmin = user.role === roles.admin;
 
     if (!isOwner && !isAdmin) {
       return res.error("Not authorized", null, 403);
