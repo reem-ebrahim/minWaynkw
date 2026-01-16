@@ -1,7 +1,7 @@
 const postModel = require("../../../DB/models/post.model");
 const userModel = require("../../../DB/models/user.model");
 const commentModel = require("../../../DB/models/comment.model");
-const { containsBadWords, maxStrikes } = require("../../../script/common");
+const { containsBadWords, maxStrikes, containsBadWordsMixed } = require("../../../script/common");
 const bannerModel = require("../../../DB/models/banner.model");
 // const { ProfanityEngine } = require("@coffeeandfun/google-profanity-words");
 // const profanity = new Profanity({
@@ -126,7 +126,7 @@ module.exports.createPost = async (req, res) => {
     if (user.blocked) {
       return res.error("Your account is blocked", null, 403);
     }
-    if (text && containsBadWords(text)) {
+    if (text && containsBadWordsMixed(text)) {
       const updatedUser = await userModel
         .findByIdAndUpdate(
           req.user.id,
