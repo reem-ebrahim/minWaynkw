@@ -14,10 +14,7 @@ router.post(
     { name: "images", maxCount: 10 },
     { name: "videos", maxCount: 3 },
   ]),
-  streakMiddleware("post", {
-    message: "You created a new post",
-    refModel: "Post",
-  }),
+  
   validate(validationPost.createPost),
   postService.createPost
 );

@@ -272,51 +272,34 @@ module.exports.profiledelete = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const currentUser = await userModel.findById(req.user.id).session(session);
+    const currentUser = await userModel.findById(id).session(session);
     if (!currentUser) {
       await session.abortTransaction();
       session.endSession();
       return res.error("User not found", null, 404);
     }
 
-    const userToDelete = await userModel.findById(id).session(session);
-    if (!userToDelete) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.error("Target user not found", null, 404);
-    }
-
-    const isOwner = currentUser._id.equals(userToDelete._id);
-    const isAdmin =
-      currentUser.role === "admin" || currentUser.role === "super_admin";
-
-    if (!isOwner && !isAdmin) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.error("You are not allowed to delete this account", null, 403);
-    }
-
     // ✅ delete user's comments
     const commentsResult = await commentModel.deleteMany(
-      { comment_by: userToDelete._id },
+      { comment_by: currentUser._id },
       { session }
     );
 
     // ✅ delete user's posts
     const postsResult = await postModel.deleteMany(
-      { createdBy: userToDelete._id },
+      { createdBy: currentUser._id },
       { session }
     );
 
     // ✅ delete user
-    await userModel.deleteOne({ _id: userToDelete._id }, { session });
+    await userModel.deleteOne({ _id: currentUser._id }, { session });
 
     await session.commitTransaction();
     session.endSession();
 
     return res.success("User deleted successfully", {
-      id: userToDelete._id,
-      email: userToDelete.email,
+      id: currentUser._id,
+      email: currentUser.email,
       deletedPosts: postsResult.deletedCount,
       deletedComments: commentsResult.deletedCount,
     });

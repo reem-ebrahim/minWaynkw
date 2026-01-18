@@ -30,7 +30,7 @@ router.patch(
 );
 router.delete(
   "/deleteUser/:id",
-  auth(endPoint.AllUser),
+
   validate(validationuser.deletevalidation),
   userservice.profiledelete
 );

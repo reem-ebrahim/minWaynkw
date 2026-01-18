@@ -1,30 +1,15 @@
 const mongoose = require("mongoose");
 
-const activitySchema = new mongoose.Schema(
+const lastActivitySchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["post", "comment", "reply", "like"],
+      enum: ["likes", "comments", "dailyactivity"],
       required: true,
     },
-    refModel: {
-      type: String,
-    enum: ["post", "comment"], 
-    },
-    refId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: false,
-      refPath: "recentActivities.refModel",
-    },
-
-    message: {
-      type: String, // مثال: "You commented on a post"
-    },
-
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
+    points: { type: Number, default: 0 },
+    message: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );
@@ -38,21 +23,18 @@ const userStreakSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ===== STREAK =====
-    lastActiveDate: { type: String, default: null },
-    currentStreak: { type: Number, default: 0 },
-    bestStreak: { type: Number, default: 0 },
+    lastActiveAt: { type: Date, default: null },
 
-    // ===== TOTAL COUNTERS =====
-    totalPosts: { type: Number, default: 0 },
-    totalComments: { type: Number, default: 0 },
-    totalReplies: { type: Number, default: 0 },
+    // ✅ نحتاجه عشان dailyactivity يزيد مرة واحدة يوميًا + نعرف لو في يوم فات بدون نشاط
+    lastDailyActivityDate: { type: String, default: null }, // "YYYY-MM-DD"
 
-    // ===== RECENT ACTIVITY =====
-    recentActivities: {
-      type: [activitySchema],
-      default: [],
-      maxlength: 50, // نخلي آخر 50 Activity بس
+    lastActivity: {
+      type: [lastActivitySchema],
+      default: [
+        { type: "likes", points: 0, message: "" },
+        { type: "comments", points: 0, message: "" },
+        { type: "dailyactivity", points: 0, message: "" },
+      ],
     },
   },
   { timestamps: true }

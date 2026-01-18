@@ -46,7 +46,7 @@ module.exports.addcomment = async (req, res) => {
       $push: { comments: comment._id },
     });
     await userModel.findByIdAndUpdate(user._id, {
-      $inc: { numberOfReplies: 1 },
+      $inc: { numberOfReplies: 1, pointer: 1 },
     });
     const postOwnerId = post.createdBy.toString();
     if (postOwnerId !== user._id) {
@@ -102,7 +102,9 @@ module.exports.addreplycomment = async (req, res) => {
     await commentModel.findByIdAndUpdate(parentComment._id, {
       $push: { replies: reply._id },
     });
-
+    await userModel.findByIdAndUpdate(user._id, {
+      $inc: { numberOfReplies: 1, pointer: 1 },
+    });
     return res.success("Reply added successfully", reply, 201);
   } catch (error) {
     return res.error("Server error", error.message, 500);
@@ -179,7 +181,7 @@ module.exports.deletecomment = async (req, res) => {
     await postModel.updateMany({ comments: id }, { $pull: { comments: id } });
     await userModel.findOneAndUpdate(
       { _id: userId, numberOfReplies: { $gt: 0 } },
-      { $inc: { numberOfReplies: -1 } }
+      { $inc: { numberOfReplies: -1 ,pointer:-1} }
     );
     return res.success("Comment and replies deleted successfully");
   } catch (error) {

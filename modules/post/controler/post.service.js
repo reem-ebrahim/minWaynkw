@@ -202,7 +202,7 @@ module.exports.likeAndUnlikePost = async (req, res) => {
         $inc: { pointer: isLiked ? -1 : 1 }, // or points
       });
     }
-
+    res.locals.didLike = isLiked;
     return res.success(isLiked ? "Post unliked" : "Post liked", {
       postId: updatedPost._id,
       likesCount: updatedPost.likes.length,
@@ -249,24 +249,15 @@ module.exports.deletePost = async (req, res) => {
     // =========================
     const replyIds = comments.flatMap((comment) => comment.replies);
 
-    // =========================
-    // 3️⃣ delete replies
-    // =========================
     if (replyIds.length > 0) {
       await commentModel.deleteMany({ _id: { $in: replyIds } });
     }
 
-    // =========================
-    // 4️⃣ delete comments
-    // =========================
     await commentModel.deleteMany({ post_id: id });
 
-    // =========================
-    // 5️⃣ delete post
-    // =========================
     await postModel.findByIdAndDelete(id);
     await userModel.findByIdAndUpdate(post.createdBy, {
-      $inc: { numberOfPosts: -1 },
+      $inc: { numberOfPosts: -1, pointer: -1 },
     });
     return res.success("Post and related comments deleted successfully");
   } catch (error) {

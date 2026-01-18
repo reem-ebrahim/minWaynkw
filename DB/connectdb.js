@@ -30,17 +30,6 @@ module.exports.connectdb = () => {
         role: "super_admin",
       });
       await countryCodeAdmin(); // 🔥 runs once safely
-      const r1 = await UserStreak.updateMany(
-      { "recentActivities.refModel": "Comment" },
-      { $set: { "recentActivities.$[x].refModel": "comment" } },
-      { arrayFilters: [{ "x.refModel": "Comment" }] }
-    );
-
-    const r2 = await UserStreak.updateMany(
-      { "recentActivities.refModel": "Post" },
-      { $set: { "recentActivities.$[x].refModel": "post" } },
-      { arrayFilters: [{ "x.refModel": "Post" }] }
-    );
     })
 
     .catch((error) => {

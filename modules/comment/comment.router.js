@@ -9,20 +9,12 @@ const router = require("express").Router();
 router.post(
   "/addcomment/:id",
   auth(endpoint.AllUser),
-  streakMiddleware("comment", {
-  message: "You created a new comment",
-  refModel: "comment", // ✅
-}),
   validate(validatecomment.validationsddcomment),
   commentservice.addcomment
 );
 router.post(
   "/addreply",
   auth(endpoint.AllUser),
-  streakMiddleware("comment", {
-  message: "You created a new comment",
-  refModel: "comment", // ✅
-}),
   validate(validatecomment.validationsreplycomment),
   commentservice.addreplycomment
 );
