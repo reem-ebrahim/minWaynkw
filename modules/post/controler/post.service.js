@@ -1,6 +1,8 @@
 const postModel = require("../../../DB/models/post.model");
 const userModel = require("../../../DB/models/user.model");
 const commentModel = require("../../../DB/models/comment.model");
+const UserStreakModel = require("../../../DB/models/streak.model");
+
 const {
   containsBadWords,
   maxStrikes,
@@ -8,6 +10,7 @@ const {
 } = require("../../../script/common");
 const bannerModel = require("../../../DB/models/banner.model");
 const { roles } = require("../../../Middleware/auth");
+const notificationModel = require("../../../DB/models/notification.model");
 // const { ProfanityEngine } = require("@coffeeandfun/google-profanity-words");
 // const profanity = new Profanity({
 //   languages: ["ar"],
@@ -172,7 +175,7 @@ module.exports.likeAndUnlikePost = async (req, res) => {
     const userId = req.user.id;
     const user = await userModel
       .findById(req.user.id)
-      .select("badWordsNumber blocked role");
+      .select("badWordsNumber blocked role firstName");
     if (!user) return res.error("User not found", null, 404);
 
     // ✅ if blocked stop
@@ -202,7 +205,19 @@ module.exports.likeAndUnlikePost = async (req, res) => {
         $inc: { pointer: isLiked ? -1 : 1 }, // or points
       });
     }
-    res.locals.didLike = isLiked;
+    res.locals.points = isLiked ? -1 : 1;
+
+    if (!isLiked && !isOwner) {
+      await notificationModel.create({
+        title: "New Like",
+        message: `${user.firstName} liked your post`,
+        type: "post",
+        receiver: post.createdBy, // comment owner
+        sender: userId, // liker user
+        relatedId: post._id, // comment id
+        postId: post._id, // optional (if your schema supports it)
+      });
+    }
     return res.success(isLiked ? "Post unliked" : "Post liked", {
       postId: updatedPost._id,
       likesCount: updatedPost.likes.length,
@@ -229,6 +244,7 @@ module.exports.deletePost = async (req, res) => {
 
     const post = await postModel.findById(id);
     if (!post) return res.error("Post not found", null, 404);
+    const likesCount = post.likes.length;
     const isOwner = post.createdBy.toString() === userId;
 
     const isAdmin = user.role === roles.admin;
@@ -243,7 +259,11 @@ module.exports.deletePost = async (req, res) => {
     const comments = await commentModel
       .find({ post_id: id })
       .select("_id replies");
-
+    const commentsCount = comments.length;
+    const repliesCount = comments.reduce(
+      (sum, c) => sum + (c.replies?.length || 0),
+      0
+    );
     // =========================
     // 2️⃣ collect replies ids
     // =========================
@@ -259,6 +279,31 @@ module.exports.deletePost = async (req, res) => {
     await userModel.findByIdAndUpdate(post.createdBy, {
       $inc: { numberOfPosts: -1, pointer: -1 },
     });
+    if (likesCount > 0) {
+      await UserStreakModel.updateOne(
+        { userId: post.createdBy, "lastActivity.type": "likes" },
+        {
+          $inc: { "lastActivity.$.points": -likesCount },
+          $set: { "lastActivity.$.message": "Post deleted - likes removed" },
+        }
+      );
+    }
+
+    // subtract comments points (comments + replies if you count replies)
+    const totalCommentRelated = commentsCount + repliesCount;
+
+    if (totalCommentRelated > 0) {
+      await UserStreakModel.updateOne(
+        { userId: post.createdBy, "lastActivity.type": "comments" },
+        {
+          $inc: { "lastActivity.$.points": -totalCommentRelated },
+          $set: {
+            "lastActivity.$.message": "Post deleted - comments removed",
+          },
+        }
+      );
+    }
+
     return res.success("Post and related comments deleted successfully");
   } catch (error) {
     console.error(error);

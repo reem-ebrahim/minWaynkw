@@ -14,7 +14,8 @@ router.post(
     { name: "images", maxCount: 10 },
     { name: "videos", maxCount: 3 },
   ]),
-  
+  streakMiddleware("dailyactivity"),
+
   validate(validationPost.createPost),
   postService.createPost
 );
@@ -22,11 +23,14 @@ router.get("/", auth(endPoint.allUser), postService.getAllPosts);
 router.patch(
   "/:id/like",
   auth(endPoint.allUser),
+  streakMiddleware("likes", { message: "likes add to post" }),
   postService.likeAndUnlikePost
 );
 router.delete(
   "/:id",
   auth(endPoint.allUser),
+  streakMiddleware("dailyactivity"),
+
   validate(validationPost.deletePost),
   postService.deletePost
 );

@@ -2,6 +2,8 @@ const commentModel = require("../../../DB/models/comment.model");
 const notificationModel = require("../../../DB/models/notification.model");
 const postModel = require("../../../DB/models/post.model");
 const userModel = require("../../../DB/models/user.model");
+const UserStreakModel = require("../../../DB/models/streak.model");
+
 const { containsBadWords, maxStrikes } = require("../../../script/common");
 
 /* ================= ADD COMMENT ================= */
@@ -9,7 +11,7 @@ module.exports.addcomment = async (req, res) => {
   try {
     const { id } = req.params; // post id
     const { body } = req.body;
-
+    const now = new Date();
     const user = await userModel.findById(req.user.id);
     if (!user) return res.error("User not found", null, 404);
 
@@ -41,7 +43,7 @@ module.exports.addcomment = async (req, res) => {
       comment_by: [user._id],
       post_id: [post._id],
     });
-    res.locals.createdId = comment._id;
+
     await postModel.findByIdAndUpdate(id, {
       $push: { comments: comment._id },
     });
@@ -59,6 +61,17 @@ module.exports.addcomment = async (req, res) => {
         relatedId: post._id,
       });
     }
+    await UserStreakModel.updateOne(
+      { userId: user._id, "lastActivity.type": "comments" },
+      {
+        $inc: { "lastActivity.$.points": 1 }, // 👈 change 1 to whatever you want
+        $set: {
+          "lastActivity.$.message": "You added a comment",
+          "lastActivity.$.createdAt": now,
+          lastActiveAt: now,
+        },
+      }
+    );
     return res.success("Comment added successfully", comment, 201);
   } catch (error) {
     return res.error("Server error", error.message, 500);
@@ -70,7 +83,7 @@ module.exports.addreplycomment = async (req, res) => {
   try {
     const { commentId } = req.query;
     const { body } = req.body;
-
+    const now = new Date();
     const user = await userModel.findById(req.user.id);
     if (!user) return res.error("User not found", null, 404);
 
@@ -105,6 +118,17 @@ module.exports.addreplycomment = async (req, res) => {
     await userModel.findByIdAndUpdate(user._id, {
       $inc: { numberOfReplies: 1, pointer: 1 },
     });
+    await UserStreakModel.updateOne(
+      { userId: user._id, "lastActivity.type": "comments" },
+      {
+        $inc: { "lastActivity.$.points": 1 }, // 👈 change 1 to whatever you want
+        $set: {
+          "lastActivity.$.message": "You added a comment",
+          "lastActivity.$.createdAt": now,
+          lastActiveAt: now,
+        },
+      }
+    );
     return res.success("Reply added successfully", reply, 201);
   } catch (error) {
     return res.error("Server error", error.message, 500);
@@ -162,7 +186,8 @@ module.exports.deletecomment = async (req, res) => {
     }
     const comment = await commentModel.findById(id);
     if (!comment) return res.error("Comment not found", null, 404);
-
+    const repliesCount = comment.replies?.length || 0;
+    const totalDeleted = 1 + repliesCount;
     if (!comment.comment_by.includes(userId)) {
       return res.error("Not authorized", null, 403);
     }
@@ -181,7 +206,18 @@ module.exports.deletecomment = async (req, res) => {
     await postModel.updateMany({ comments: id }, { $pull: { comments: id } });
     await userModel.findOneAndUpdate(
       { _id: userId, numberOfReplies: { $gt: 0 } },
-      { $inc: { numberOfReplies: -1 ,pointer:-1} }
+      { $inc: { numberOfReplies: -1, pointer: -1 } }
+    );
+    await UserStreakModel.updateOne(
+      { userId, "lastActivity.type": "comments" },
+      {
+        $inc: { "lastActivity.$.points": -totalDeleted },
+        $set: {
+          "lastActivity.$.message": "Deleted comment (with replies)",
+          "lastActivity.$.createdAt": new Date(),
+          lastActiveAt: new Date(),
+        },
+      }
     );
     return res.success("Comment and replies deleted successfully");
   } catch (error) {
@@ -195,7 +231,7 @@ module.exports.likeandunlikecomment = async (req, res) => {
     const userId = req.user.id;
     const user = await userModel
       .findById(userId)
-      .select("badWordsNumber blocked");
+      .select("badWordsNumber blocked firstName");
     if (!user) return res.error("User not found", null, 404);
 
     // ✅ if blocked stop
@@ -233,6 +269,18 @@ module.exports.likeandunlikecomment = async (req, res) => {
         { $inc: { pointer: isLiked ? -1 : 1 } },
         { new: true }
       );
+    }
+    res.locals.points = isLiked ? -1 : 1;
+    if (!isLiked && !isOwner) {
+      await notificationModel.create({
+        title: "New Like",
+        message: `${user.firstName} liked your comment`,
+        type: "comment",
+        receiver: comment.comment_by, // comment owner
+        sender: userId, // liker user
+        relatedId: comment._id, // comment id
+        postId: comment.post_id, // optional (if your schema supports it)
+      });
     }
     return res.success(isLiked ? "Comment unliked" : "Comment liked", {
       comment: updatedComment,

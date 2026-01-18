@@ -9,12 +9,16 @@ const router = require("express").Router();
 router.post(
   "/addcomment/:id",
   auth(endpoint.AllUser),
+  streakMiddleware("dailyactivity"),
+
   validate(validatecomment.validationsddcomment),
   commentservice.addcomment
 );
 router.post(
   "/addreply",
   auth(endpoint.AllUser),
+  streakMiddleware("dailyactivity"),
+
   validate(validatecomment.validationsreplycomment),
   commentservice.addreplycomment
 );
@@ -27,12 +31,16 @@ router.patch(
 router.delete(
   "/:id",
   auth(endpoint.AllUser),
+  streakMiddleware("dailyactivity"),
+
   validate(validatecomment.validationsdeletecomment),
   commentservice.deletecomment
 );
 router.patch(
   "/:id/like",
   auth(endpoint.AllUser),
+  streakMiddleware("likes", { message: "likes add to comment" }),
+
   validate(validatecomment.validationslikecomment),
   commentservice.likeandunlikecomment
 );

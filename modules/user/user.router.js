@@ -77,4 +77,5 @@ router.patch(
   validate(validationuser.assignVipValidation),
   userservice.assignVipLevel
 );
+router.get("/contactUs",userservice.getContactUsLinks)
 module.exports = router;

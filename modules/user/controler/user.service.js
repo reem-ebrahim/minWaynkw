@@ -6,7 +6,7 @@ const countryModel = require("../../../DB/models/country.model");
 const { default: mongoose } = require("mongoose");
 const commentModel = require("../../../DB/models/comment.model");
 const postModel = require("../../../DB/models/post.model");
-const { generateNickname } = require("../../../script/common");
+const { generateNickname, contactUsLinks } = require("../../../script/common");
 const { roles } = require("../../../Middleware/auth");
 
 const generateCode = () => {
@@ -127,7 +127,7 @@ module.exports.signin = async (req, res) => {
         { email },
         {
           code: hashedCode,
-          emailVerificationExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
+          verificationCodeExpires: Date.now() + 10 * 60 * 1000, // 10 minutes
         },
         { new: true }
       );
@@ -450,7 +450,7 @@ module.exports.confirmByCode = async (req, res) => {
     if (!user) {
       return res.error("User not found", null, 404);
     }
-
+   
     if (!user.code || !user.verificationCodeExpires) {
       return res.error("No verification code found", null, 400);
     }
@@ -579,4 +579,10 @@ module.exports.assignVipLevel = async (req, res) => {
   } catch (error) {
     return res.error("Internal server error", error.message, 500);
   }
+};
+
+module.exports.getContactUsLinks = async (req, res) => {
+
+
+  return res.success("Contact us links", contactUsLinks);
 };

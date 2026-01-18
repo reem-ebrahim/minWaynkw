@@ -20,23 +20,14 @@ module.exports.createAdminNotification = async (req, res) => {
 
 module.exports.getMyNotifications = async (req, res) => {
   const notifications = await notificationModel
-    .find({ receiver: req.user.id })
-    .sort({ createdAt: -1 })
-    .populate({
-      path: "receiver",
-      select: "firstName lastName email profile_picture country",
-      populate: {
-        path: "country",
-        select: "name isoCode dialCode flag",
-      },
+    .find({
+      $or: [{ receiver: req.user.id }, { type: "banner" }],
     })
+    .sort({ createdAt: -1 })
+
     .populate({
       path: "sender",
-      select: "firstName lastName email profile_picture country",
-      populate: {
-        path: "country",
-        select: "name isoCode dialCode flag",
-      },
+      select: "firstName lastName  nickName",
     });
 
   return res.success("Notifications", notifications);

@@ -208,6 +208,34 @@ function containsBadWordsArabicWithArabizi(text = "") {
   return containsBadWords(converted);
 }
 
+const contactUsLinks = [
+  {
+    title: "WhatsApp",
+    url: "https://wa.me/201000000000",
+    logo: "https://cdn.simpleicons.org/whatsapp/25D366",
+  },
+  {
+    title: "Instagram",
+    url: "https://instagram.com/yourpage",
+    logo: "https://cdn.simpleicons.org/instagram/E4405F",
+  },
+  {
+    title: "Facebook",
+    url: "https://facebook.com/yourpage",
+    logo: "https://cdn.simpleicons.org/facebook/1877F2",
+  },
+  {
+    title: "YouTube",
+    url: "https://youtube.com/@yourchannel",
+    logo: "https://cdn.simpleicons.org/youtube/FF0000",
+  },
+  {
+    title: "Email",
+    url: "mailto:support@yourapp.com",
+    logo: "https://cdn.simpleicons.org/gmail/EA4335",
+  },
+];
+
 module.exports = {
   GCC_ISO: ["SA", "AE", "KW", "QA", "BH", "OM"],
   generateNickname,
@@ -216,4 +244,5 @@ module.exports = {
   normalizeArabic,
   maxStrikes,
   containsBadWordsMixed,
+  contactUsLinks,
 };
