@@ -21,7 +21,7 @@ module.exports.createAdminNotification = async (req, res) => {
 module.exports.getMyNotifications = async (req, res) => {
   const notifications = await notificationModel
     .find({
-      $or: [{ receiver: req.user.id }, { type: "banner" }],
+      $or: [{ receiver: req.user.id }],
     })
     .sort({ createdAt: -1 })
 
@@ -111,7 +111,7 @@ module.exports.deleteAllNotifications = async (req, res) => {
 module.exports.markAllAsRead = async (req, res) => {
   await notificationModel.updateMany(
     {
-      $or: [{ receiver: req.user.id }, { type: "banner" }],
+      $or: [{ receiver: req.user.id }],
       isRead: false, // only unread
     },
     {
