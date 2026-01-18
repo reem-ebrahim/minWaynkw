@@ -40,13 +40,18 @@ module.exports.getMyNotifications = async (req, res) => {
     hours = hours % 12 || 12; // convert 0 -> 12
 
     return {
-      ...n,
+      id: n._id,
+      title: n.title,
+      message: n.message,
+      type: n.type,
+      sender: n.sender,
+      isRead: n.isRead,
       time: `${String(date.getDate()).padStart(2, "0")}-${String(
         date.getMonth() + 1
       ).padStart(2, "0")}-${date.getFullYear()} ${hours}:${minutes} ${ampm}`,
     };
   });
-  return res.success("Notifications", { notifications: data });
+  return res.success("Notifications", data );
 };
 
 module.exports.markAsRead = async (req, res) => {
