@@ -28,9 +28,25 @@ module.exports.getMyNotifications = async (req, res) => {
     .populate({
       path: "sender",
       select: "firstName lastName  nickName",
-    });
+    })
+    .lean();
+  const data = notifications.map((n) => {
+    const date = new Date(n.createdAt);
 
-  return res.success("Notifications", notifications);
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+
+    hours = hours % 12 || 12; // convert 0 -> 12
+
+    return {
+      ...n,
+      time: `${String(date.getDate()).padStart(2, "0")}-${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}-${date.getFullYear()} ${hours}:${minutes} ${ampm}`,
+    };
+  });
+  return res.success("Notifications", { notifications: data });
 };
 
 module.exports.markAsRead = async (req, res) => {
