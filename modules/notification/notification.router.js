@@ -10,6 +10,7 @@ const {
   markAsRead,
   deleteNotificationById,
   deleteAllNotifications,
+  markAllAsRead,
 } = require("./controler/notification.service");
 
 const {
@@ -46,5 +47,7 @@ router.delete(
 
 /* ================= DELETE ALL NOTIFICATIONS ================= */
 router.delete("/", auth(endpoint.AllUser), deleteAllNotifications);
+router.patch("/", auth(endpoint.AllUser), markAllAsRead);
+
 
 module.exports = router;

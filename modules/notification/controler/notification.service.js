@@ -51,7 +51,7 @@ module.exports.getMyNotifications = async (req, res) => {
       ).padStart(2, "0")}-${date.getFullYear()} ${hours}:${minutes} ${ampm}`,
     };
   });
-  return res.success("Notifications", data );
+  return res.success("Notifications", data);
 };
 
 module.exports.markAsRead = async (req, res) => {
@@ -106,4 +106,18 @@ module.exports.deleteAllNotifications = async (req, res) => {
   } catch (error) {
     return res.error("Server error", error.message, 500);
   }
+};
+
+module.exports.markAllAsRead = async (req, res) => {
+  await notificationModel.updateMany(
+    {
+      $or: [{ receiver: req.user.id }, { type: "banner" }],
+      isRead: false, // only unread
+    },
+    {
+      $set: { isRead: true },
+    }
+  );
+
+  return res.success("All notifications marked as read");
 };
